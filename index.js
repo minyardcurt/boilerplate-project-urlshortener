@@ -76,6 +76,7 @@ app.post('/api/shorturl', async (req, res) => {
     });
 
   } catch (err) {
+    console.error(' Error during URL processing:', err.message);
     return res.json({ error: 'invalid url' });
   }
 });
