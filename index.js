@@ -38,6 +38,7 @@ app.get('/', (req, res) => {
 
 // POST endpoint — create short URL
 app.post('/api/shorturl', async (req, res) => {
+  console.log('Received body:', req.body);
   const originalUrl = req.body.url;
 
   try {
