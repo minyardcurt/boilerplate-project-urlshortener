@@ -78,23 +78,28 @@ app.post('/api/shorturl', async (req, res) => {
 // GET endpoint to redirect to original URL
 app.get('/api/shorturl/:short_url', async (req, res) => {
   const shortUrl = Number(req.params.short_url);
+  console.log('➡️ Redirect route hit with short_url:', shortUrl);
 
   if (isNaN(shortUrl)) {
+    console.log('❌ Not a number');
     return res.json({ error: 'invalid url' });
   }
 
   try {
     const found = await Url.findOne({ short_url: shortUrl });
-
     if (!found) {
+      console.log('❌ No URL found in database');
       return res.json({ error: 'No short URL found' });
     }
 
+    console.log('✅ Redirecting to:', found.original_url);
     return res.redirect(found.original_url);
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    console.error('🔥 Server error:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 // Start the server
 app.listen(port, () => {
