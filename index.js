@@ -41,7 +41,7 @@ app.get('/', (req, res) => {
 // POST endpoint — create short URL
 app.post('/api/shorturl', async (req, res) => {
   console.log('Received body:', req.body);
-  const originalUrl = req.body.url;
+  const originalUrl = req.body.url.trim();
 
   try {
     //  Validate protocol and URL format
@@ -79,6 +79,7 @@ app.post('/api/shorturl', async (req, res) => {
 
   } catch (err) {
     console.error(' Error during URL processing:', err.message);
+    console.log('Responding with invalid url error for:', originalUrl);
     return res.json({ error: 'invalid url' });
   }
 });
