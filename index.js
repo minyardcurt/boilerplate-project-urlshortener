@@ -20,8 +20,8 @@ app.use((req, res, next) => {
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log(' MongoDB connected'))
-  .catch(err => console.error(' MongoDB connection error:', err));
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // Define Mongoose Schema & Model
 const urlSchema = new mongoose.Schema({
@@ -81,8 +81,8 @@ app.post('/api/shorturl', async (req, res) => {
 
 // GET endpoint — redirect short_url to original_url
 app.get('/api/shorturl/:short_url', async (req, res) => {
-  const shortUrl = Number(req.params.short_url);
-  console.log(' Redirect route hit with short_url:', shortUrl);
+  const shortUrl = parseInt(req.params.short_url.trim(), 10);
+  console.log('Redirect route hit with short_url:', shortUrl);
 
   if (isNaN(shortUrl)) {
     return res.json({ error: 'invalid url' });
@@ -90,20 +90,20 @@ app.get('/api/shorturl/:short_url', async (req, res) => {
 
   try {
     const found = await Url.findOne({ short_url: shortUrl });
-
     if (!found) {
       return res.json({ error: 'No short URL found' });
     }
 
-    console.log(' Redirecting to:', found.original_url);
+    console.log('Redirecting to:', found.original_url);
     return res.redirect(found.original_url);
   } catch (err) {
-    console.error(' Server error:', err);
+    console.error('Server error:', err);
     return res.status(500).json({ error: 'Server error' });
   }
 });
 
+
 // Start the server
 app.listen(port, () => {
-  console.log(` Server is running on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });
