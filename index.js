@@ -13,7 +13,7 @@ const port = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-// Connect to MongoDB Atlas
+// Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
@@ -23,6 +23,7 @@ const urlSchema = new mongoose.Schema({
   original_url: { type: String, required: true },
   short_url: { type: Number, required: true, unique: true }
 });
+
 const Url = mongoose.model('Url', urlSchema);
 
 // Root endpoint
@@ -33,35 +34,35 @@ app.get('/', (req, res) => {
 // POST endpoint to create short URL
 app.post('/api/shorturl', async (req, res) => {
   const originalUrl = req.body.url;
-  const hostname = urlParser.parse(originalUrl).hostname;
-
-  if (!hostname) return res.json({ error: 'invalid url' });
 
   try {
-    // DNS validation
-    await dns.lookup(hostname);
+    // Validate the URL format
+    const parsedUrl = new URL(originalUrl);
 
-    // Check if URL already exists
-    let foundUrl = await Url.findOne({ original_url: originalUrl });
-    if (foundUrl) {
+    // DNS validation
+    await dns.lookup(parsedUrl.hostname);
+
+    // Check if the URL already exists in DB
+    let existing = await Url.findOne({ original_url: originalUrl });
+    if (existing) {
       return res.json({
-        original_url: foundUrl.original_url,
-        short_url: foundUrl.short_url
+        original_url: existing.original_url,
+        short_url: existing.short_url
       });
     }
 
-    // Generate new short_url
+    // Generate new short_url (auto-increment style)
     const count = await Url.countDocuments();
-    const newUrl = new Url({
+    const newEntry = new Url({
       original_url: originalUrl,
       short_url: count + 1
     });
 
-    await newUrl.save();
+    await newEntry.save();
 
     res.json({
-      original_url: newUrl.original_url,
-      short_url: newUrl.short_url
+      original_url: newEntry.original_url,
+      short_url: newEntry.short_url
     });
   } catch (err) {
     return res.json({ error: 'invalid url' });
@@ -72,11 +73,18 @@ app.post('/api/shorturl', async (req, res) => {
 app.get('/api/shorturl/:short_url', async (req, res) => {
   const shortUrl = Number(req.params.short_url);
 
-  try {
-    const foundUrl = await Url.findOne({ short_url: shortUrl });
-    if (!foundUrl) return res.json({ error: 'invalid url' });
+  if (isNaN(shortUrl)) {
+    return res.json({ error: 'invalid url' });
+  }
 
-    res.redirect(foundUrl.original_url);
+  try {
+    const found = await Url.findOne({ short_url: shortUrl });
+
+    if (!found) {
+      return res.json({ error: 'No short URL found' });
+    }
+
+    return res.redirect(found.original_url);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -86,4 +94,3 @@ app.get('/api/shorturl/:short_url', async (req, res) => {
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
-
