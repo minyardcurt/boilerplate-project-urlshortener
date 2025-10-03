@@ -13,6 +13,12 @@ const port = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
+// 🔍 Middleware to log every incoming request
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB connected'))
