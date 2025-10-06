@@ -3,7 +3,6 @@ require('dotenv').config();
 
 const express = require('express');
 const mongoose = require('mongoose');
-const { URL } = require('url');
 const validUrl = require('valid-url'); // npm install valid-url
 
 const app = express();
@@ -13,9 +12,10 @@ const port = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-// Request logging (optional)
+// Request logging (clean)
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  const cleanBody = req.body ? JSON.parse(JSON.stringify(req.body)) : {};
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} Body:`, cleanBody);
   next();
 });
 
@@ -39,10 +39,6 @@ app.get('/', (req, res) => {
 
 // POST endpoint — create short URL
 app.post('/api/shorturl', async (req, res) => {
-  // Convert body to plain object for clean logging
-  const cleanBody = JSON.parse(JSON.stringify(req.body));
-  console.log('Received body:', cleanBody);
-
   const originalUrl = req.body.url?.trim();
 
   // Validate URL using valid-url
@@ -52,6 +48,7 @@ app.post('/api/shorturl', async (req, res) => {
   }
 
   try {
+    // Check if URL already exists
     const existing = await Url.findOne({ original_url: originalUrl });
     if (existing) {
       return res.json({
@@ -60,13 +57,14 @@ app.post('/api/shorturl', async (req, res) => {
       });
     }
 
-    const count = await Url.countDocuments();
-    const newEntry = new Url({
-      original_url: originalUrl,
-      short_url: count + 1
-    });
+    // Atomic short_url creation
+    const lastEntry = await Url.findOne().sort({ short_url: -1 });
+    const newShortUrl = lastEntry ? lastEntry.short_url + 1 : 1;
 
-    await newEntry.save();
+    const newEntry = await Url.create({
+      original_url: originalUrl,
+      short_url: newShortUrl
+    });
 
     return res.json({
       original_url: newEntry.original_url,
@@ -78,7 +76,6 @@ app.post('/api/shorturl', async (req, res) => {
     return res.status(500).json({ error: 'Server error' });
   }
 });
-
 
 // GET endpoint — redirect short_url to original_url
 app.get('/api/shorturl/:short_url', async (req, res) => {
