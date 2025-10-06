@@ -3,9 +3,8 @@ require('dotenv').config();
 
 const express = require('express');
 const mongoose = require('mongoose');
-const dns = require('dns').promises;
 const { URL } = require('url');
-
+const validUrl = require('valid-url'); // npm install valid-url
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -14,7 +13,7 @@ const port = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-// Request logging (optional, useful for debugging)
+// Request logging (optional)
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
@@ -40,21 +39,19 @@ app.get('/', (req, res) => {
 
 // POST endpoint — create short URL
 app.post('/api/shorturl', async (req, res) => {
-  console.log('Received body:', req.body);
-  const originalUrl = req.body.url.trim();
+  // Convert body to plain object for clean logging
+  const cleanBody = JSON.parse(JSON.stringify(req.body));
+  console.log('Received body:', cleanBody);
+
+  const originalUrl = req.body.url?.trim();
+
+  // Validate URL using valid-url
+  if (!originalUrl || !validUrl.isWebUri(originalUrl)) {
+    console.log('Invalid URL received:', originalUrl);
+    return res.json({ error: 'invalid url' });
+  }
 
   try {
-    //  Validate protocol and URL format
-    const parsedUrl = new URL(originalUrl);
-
-    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
-      return res.json({ error: 'invalid url' });
-    }
-
-    //  DNS lookup to ensure hostname exists
-    await dns.lookup(parsedUrl.hostname);
-
-    // Check if URL already exists
     const existing = await Url.findOne({ original_url: originalUrl });
     if (existing) {
       return res.json({
@@ -63,7 +60,6 @@ app.post('/api/shorturl', async (req, res) => {
       });
     }
 
-    //  Create new short_url (auto-increment style)
     const count = await Url.countDocuments();
     const newEntry = new Url({
       original_url: originalUrl,
@@ -78,15 +74,15 @@ app.post('/api/shorturl', async (req, res) => {
     });
 
   } catch (err) {
-    console.error(' Error during URL processing:', err.message);
-    console.log('Responding with invalid url error for:', originalUrl);
-    return res.json({ error: 'invalid url' });
+    console.error('Error saving URL:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
 });
 
+
 // GET endpoint — redirect short_url to original_url
 app.get('/api/shorturl/:short_url', async (req, res) => {
-  const shortUrl = parseInt(req.params.short_url.trim(), 10);
+  const shortUrl = parseInt(req.params.short_url?.trim(), 10);
   console.log('Redirect route hit with short_url:', shortUrl);
 
   if (isNaN(shortUrl)) {
@@ -106,7 +102,6 @@ app.get('/api/shorturl/:short_url', async (req, res) => {
     return res.status(500).json({ error: 'Server error' });
   }
 });
-
 
 // Start the server
 app.listen(port, () => {
